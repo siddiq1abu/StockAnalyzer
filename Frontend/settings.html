@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NiftyPilot - API Settings</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--txt:#e6edf3;--mut:#8b949e;--blue:#58a6ff;--green:#3fb950;--red:#f85149}
+*{box-sizing:border-box}body{margin:0;padding:28px;background:var(--bg);color:var(--txt);font-family:'Segoe UI',system-ui,sans-serif}main{max-width:850px;margin:auto}a{color:var(--blue)}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}h1{font-size:1.4rem;color:var(--blue)}h1 span{color:#bc8cff}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:700px){.grid{grid-template-columns:1fr}}.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}.card h2{margin-top:0;font-size:1.05rem}.muted{color:var(--mut);font-size:.86rem}.field{margin:14px 0}.field label{display:block;color:var(--mut);font-size:.82rem;margin-bottom:6px}input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--txt)}button{border:1px solid var(--blue);background:#1f6feb33;color:var(--txt);padding:10px 14px;border-radius:8px;cursor:pointer}button.secondary{border-color:var(--border);background:transparent}.actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}.status{margin-top:14px;font-size:.86rem}.ok{color:var(--green)}.error{color:var(--red)}.note{margin:18px 0;padding:12px;border-left:3px solid var(--blue);background:#1f6feb15;color:var(--mut);font-size:.86rem}
+</style></head>
+<body><main>
+<header><h1>Nifty<span>Pilot</span> API Settings</h1><a href="/">Back to analyzer</a></header>
+<p class="muted">Credentials are stored locally on this machine in the backend and are never sent to the browser after saving. Existing values stay unchanged when a field is left blank.</p>
+<div class="note">Angel One requires only the API key, client ID, MPIN, and TOTP secret to create a session.</div>
+<div class="grid">
+<section class="card"><h2>Groq</h2><p class="muted">Used by the server-side <code>/api/ai/chat</code> endpoint for AI-powered explanations.</p><div class="field"><label for="groqKey">API key</label><input id="groqKey" type="password" autocomplete="off" placeholder="gsk_..."></div><div class="actions"><button onclick="save()">Save credentials</button><button class="secondary" onclick="test('groq')">Test Groq</button></div><div id="groqStatus" class="status"></div></section>
+<section class="card"><h2>Angel One SmartAPI</h2><p class="muted">Used for authenticated Angel One market/trading API access.</p><div class="field"><label for="angelKey">API key</label><input id="angelKey" type="password" autocomplete="off"></div><div class="field"><label for="clientId">Client ID</label><input id="clientId" autocomplete="off"></div><div class="field"><label for="mpin">MPIN</label><input id="mpin" type="password" autocomplete="off"></div><div class="field"><label for="totp">TOTP secret</label><input id="totp" type="password" autocomplete="off"></div><div class="actions"><button onclick="save()">Save credentials</button><button class="secondary" onclick="test('angel_one')">Test Angel One</button></div><div id="angelStatus" class="status"></div></section>
+</div></main>
+<script>
+const $=id=>document.getElementById(id);
+async function load(){const d=await (await fetch('/api/settings/status')).json();$('groqStatus').textContent=d.groq.configured?'Configured: '+d.groq.api_key:'Not configured';$('angelStatus').textContent=d.angel_one.configured?'Configured: '+d.angel_one.api_key:'Not configured';}
+async function save(){const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({groq:{api_key:$('groqKey').value},angel_one:{api_key:$('angelKey').value,client_id:$('clientId').value,mpin:$('mpin').value,totp:$('totp').value}})});const d=await r.json();if(!r.ok){alert(d.error||'Could not save');return;} $('groqKey').value='';$('angelKey').value='';$('clientId').value='';$('mpin').value='';$('totp').value='';$('groqStatus').textContent=d.status.groq.configured?'Saved: '+d.status.groq.api_key:'Not configured';$('angelStatus').textContent=d.status.angel_one.configured?'Saved: '+d.status.angel_one.api_key:'Not configured';}
+async function test(service){const id=service==='groq'?'groqStatus':'angelStatus';$(id).textContent='Testing…';$(id).className='status';const r=await fetch('/api/settings/test/'+service,{method:'POST'});const d=await r.json();$(id).textContent=d.message||d.error;$(id).className='status '+(r.ok?'ok':'error');}
+load();
+</script></body></html>

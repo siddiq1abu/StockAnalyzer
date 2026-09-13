@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NiftyPilot - Indian Stock Analyzer</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--txt:#e6edf3;--mut:#8b949e;
+--green:#3fb950;--red:#f85149;--amber:#d29922;--blue:#58a6ff;--purple:#bc8cff}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:0 0 60px}
+header{display:flex;gap:14px;align-items:center;padding:16px 28px;border-bottom:1px solid var(--border);
+background:var(--card);position:sticky;top:0;z-index:50;flex-wrap:wrap}
+h1{font-size:1.25rem;color:var(--blue)}h1 span{color:var(--purple)}
+nav button{background:none;border:1px solid var(--border);color:var(--mut);padding:8px 16px;
+border-radius:8px;cursor:pointer;font-size:.9rem}
+nav button.active{color:var(--txt);border-color:var(--blue);background:#1f6feb22}
+nav a{display:inline-block;border:1px solid var(--border);color:var(--mut);padding:8px 16px;
+border-radius:8px;text-decoration:none;font-size:.9rem}
+nav a:hover{color:var(--txt);border-color:var(--blue)}
+.search-wrap{position:relative;flex:1;max-width:480px;margin-left:auto}
+input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);
+background:var(--bg);color:var(--txt);font-size:.95rem}
+#suggest{position:absolute;top:110%;left:0;right:0;background:var(--card);
+border:1px solid var(--border);border-radius:8px;display:none;max-height:320px;overflow:auto}
+#suggest div{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border)}
+#suggest div:hover{background:#1f6feb33}
+main{max-width:1250px;margin:0 auto;padding:24px}
+.grid{display:grid;gap:16px}
+.g4{grid-template-columns:repeat(4,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:1fr 1fr}
+@media(max-width:900px){.g4,.g3,.g2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px}
+.card h3{font-size:.85rem;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.big{font-size:2rem;font-weight:700}
+.pill{display:inline-block;padding:4px 14px;border-radius:999px;font-weight:600;font-size:.85rem}
+.pill.strong-buy,.pill.buy{background:#23863633;color:var(--green);border:1px solid #23863666}
+.pill.hold{background:#9e6a0333;color:var(--amber);border:1px solid #9e6a0366}
+.pill.reduce,.pill.avoid{background:#da363333;color:var(--red);border:1px solid #da363366}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+td,th{padding:8px 10px;border-bottom:1px solid var(--border);text-align:left}
+th{color:var(--mut);font-weight:600;font-size:.78rem;text-transform:uppercase}
+.pos{color:var(--green)}.neg{color:var(--red)}
+#candle{width:100%;height:420px}
+.letter{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)}
+.letter .l{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+font-weight:800;background:#1f6feb22;color:var(--blue)}
+.bar{flex:1;height:8px;background:var(--bg);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--blue)}
+.reasons{font-size:.8rem;color:var(--mut);padding:6px 0 6px 46px}
+.reasons li{margin-left:14px;margin-bottom:2px}
+.sig{padding:8px 10px;border-radius:8px;margin-bottom:6px;font-size:.86rem;
+border-left:3px solid var(--mut);background:var(--bg)}
+.sig.bullish{border-left-color:var(--green)}.sig.bearish{border-left-color:var(--red)}
+.list-row{display:flex;justify-content:space-between;padding:9px 4px;border-bottom:1px solid var(--border);
+cursor:pointer;font-size:.9rem}
+.list-row:hover{background:#1f6feb15}
+#trendView .card{margin-bottom:16px}
+h2{font-size:1.05rem;margin:26px 0 12px;color:var(--mut)}
+.mkt-banner{padding:10px 18px;border-radius:10px;margin-bottom:18px;font-size:.9rem;
+background:#1f6feb15;border:1px solid #1f6feb44}
+.hidden{display:none}
+.score-ring{display:flex;align-items:center;gap:18px}
+.muted{color:var(--mut);font-size:.82rem}
+a{color:var(--blue)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Nifty<span>Pilot</span> 📈</h1>
+  <nav>
+    <button class="active" onclick="showView('stock',this)">Stock Analysis</button>
+    <button onclick="showView('trend',this)">Trending & Sectors</button>
+    <button onclick="showView('reco',this)">Top Picks</button>
+  </nav>
+  <div class="search-wrap">
+    <input id="q" placeholder="Search NSE stock… e.g. Reliance, TCS, HDFCBANK" autocomplete="off">
+    <div id="suggest"></div>
+  </div>
+</header>
+<main>
+  <div class="mkt-banner" id="mktBanner">Loading market status…</div>
+
+  <!-- STOCK VIEW -->
+  <section id="stockView">
+    <div id="empty" class="card" style="text-align:center;padding:60px;color:var(--mut)">
+      <p style="font-size:1.1rem">🔍 Search any Indian stock above to get a full analysis:</p>
+      <p class="muted" style="margin-top:10px">CANSLIM score • Technical indicators & chart patterns • Fundamental growth • Analyst ratings</p>
+    </div>
+    <div id="result" class="hidden">
+      <div class="grid g4" style="margin-bottom:16px">
+        <div class="card"><h3>Stock</h3><div class="big" id="rName">—</div>
+          <div class="muted" id="rMeta"></div></div>
+        <div class="card"><h3>Price</h3><div class="big" id="rPrice">—</div>
+          <div id="rChange"></div><div class="muted" id="rChanges"></div></div>
+        <div class="card"><h3>Overall Rating</h3>
+          <div class="score-ring"><div class="big" id="rScore">—</div>
+          <span class="pill" id="rRating">—</span></div>
+          <div class="muted">Weighted: CANSLIM 40% • Technical 30% • Fundamental 30%</div></div>
+        <div class="card"><h3>CANSLIM Verdict</h3><div class="big" id="rVerdict" style="font-size:1.25rem">—</div>
+          <div class="muted" id="rVerdictNote"></div>
+          <div class="muted" id="rStrongWeak" style="margin-top:6px"></div></div>
+      </div>
+
+      <div class="grid g2" style="margin-bottom:16px">
+        <div class="card"><h3>Price Chart (6 months)</h3><div id="candle"></div></div>
+        <div class="card"><h3>CANSLIM Breakdown</h3><div id="canslimRows"></div></div>
+      </div>
+
+      <div class="grid g3" style="margin-bottom:16px">
+        <div class="card"><h3>Technical Analysis — <span id="rTrend"></span></h3>
+          <table id="techTable"></table>
+          <div style="margin-top:12px" id="techSignals"></div></div>
+        <div class="card"><h3>Chart Patterns Detected</h3><div id="patternList"></div></div>
+        <div class="card"><h3>Fundamentals (Recent Quarter)</h3><table id="fundTable"></table>
+          <h3 style="margin-top:16px">Valuation & Quality</h3><table id="valTable"></table></div>
+      </div>
+
+      <div class="grid g2">
+        <div class="card"><h3>Analyst Ratings</h3><table id="analystTable"></table></div>
+        <div class="card"><h3>Recent News / New Developments (CANSLIM 'N')</h3><div id="newsList"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRENDING VIEW -->
+  <section id="trendView" class="hidden">
+    <div class="grid g2">
+      <div class="card"><h3>🔥 Sector Performance Today</h3><div id="sectorBars"></div></div>
+      <div class="card"><h3>⚡ Most Active (Volume)</h3><div id="activeList"></div></div>
+      <div class="card"><h3>📈 Top Gainers Today</h3><div id="gainerList"></div></div>
+      <div class="card"><h3>🚀 1-Month Momentum Leaders</h3><div id="momentumList"></div></div>
+      <div class="card"><h3>🏔️ Near 52-Week High (New-high territory)</h3><div id="highList"></div></div>
+    </div>
+  </section>
+
+  <!-- RECOMMENDATIONS VIEW -->
+  <section id="recoView" class="hidden">
+    <div class="card"><h3>🏆 Top CANSLIM-Rated Stocks (Universe Scan)</h3>
+      <p class="muted" style="margin-bottom:12px">First load scans ~35 liquid stocks and takes a minute; results are cached.</p>
+      <div id="recoList"></div></div>
+  </section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+let chart;
+
+function showView(v,btn){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  $('stockView').classList.toggle('hidden',v!=='stock');
+  $('trendView').classList.toggle('hidden',v!=='trend');
+  $('recoView').classList.toggle('hidden',v!=='reco');
+  if(v==='trend')loadTrending(); if(v==='reco')loadReco();
+}
+const cls=v=>v==null?'muted':(v>=0?'pos':'neg');
+const fmt=v=>v==null?'—':(v>=0?'+':'')+v+'%';
+
+/* ---- search ---- */
+let tmr;
+$('q').addEventListener('input',e=>{
+  clearTimeout(tmr);
+  const q=e.target.value;
+  if(q.length<2){$('suggest').style.display='none';return;}
+  tmr=setTimeout(async()=>{
+    const r=await fetch('/api/search?q='+encodeURIComponent(q));
+    const data=await r.json();
+    $('suggest').innerHTML=data.map(s=>
+      `<div onclick="pick('${s.symbol}')"><b>${s.name}</b> <span class="muted">${s.symbol} • ${s.sector}</span></div>`).join('');
+    $('suggest').style.display=data.length?'block':'none';
+  },250);
+});
+function pick(sym){$('suggest').style.display='none';$('q').value=sym.replace('.NS','');analyzeStock(sym);}
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&$('q').value)pick($('q').value+'.NS');});
+
+/* ---- analysis ---- */
+async function analyzeStock(sym){
+  $('empty').classList.add('hidden');$('result').classList.add('hidden');
+  $('rName').textContent='Loading '+sym+'…';
+  $('result').classList.remove('hidden');
+  const r=await fetch('/api/analyze/'+encodeURIComponent(sym));
+  const d=await r.json();
+  if(d.error){alert(d.error);return;}
+  $('rName').textContent=d.name;
+  $('rMeta').textContent=d.symbol+' • '+d.sector;
+  $('rPrice').textContent='₹'+d.price.toLocaleString('en-IN');
+  $('rChange').innerHTML=`<span class="${cls(d.day_change_pct)}">${fmt(d.day_change_pct)} today</span>`;
+  $('rChanges').textContent=`1W ${fmt(d.week_change_pct)}  •  1M ${fmt(d.month_change_pct)}`;
+  $('rScore').textContent=d.overall_score;
+  const pill=$('rRating');pill.textContent=d.rating;pill.className='pill '+d.rating.toLowerCase().replace(' ','-');
+  $('rVerdict').textContent=d.canslim.verdict;
+  $('rVerdictNote').textContent=d.canslim.verdict_note;
+  $('rStrongWeak').innerHTML='💪 '+d.canslim.strongest_factor+'<br>⚠️ '+d.canslim.weakest_factor;
+
+  /* CANSLIM rows */
+  $('canslimRows').innerHTML=Object.entries(d.canslim.letters).map(([k,v])=>`
+    <div class="letter"><div class="l">${k}</div>
+      <div style="flex:1"><b>${v.title}</b><div class="bar"><i style="width:${v.score*10}%"></i></div></div>
+      <b>${v.score}</b></div>
+    <ul class="reasons">${v.reasons.map(r=>`<li>${r}</li>`).join('')||'<li>—</li>'}</ul>`).join('');
+
+  /* chart */
+  if(chart)chart.dispose();
+  chart=echarts.init($('candle'));
+  chart.setOption({backgroundColor:'transparent',
+    grid:{left:50,right:16,top:30,bottom:60},legend:{data:['Price','MA20','MA50'],textStyle:{color:'#8b949e'}},
+    xAxis:{type:'category',data:d.chart.dates,axisLine:{lineStyle:{color:'#30363d'}}},
+    yAxis:{scale:true,axisLine:{lineStyle:{color:'#30363d'}},splitLine:{lineStyle:{color:'#21262d'}}},
+    dataZoom:[{type:'inside'}],
+    series:[
+     {name:'Price',type:'candlestick',data:d.chart.ohlc.map(o=>[o[0],o[1],o[3],o[2]]),
+      itemStyle:{color:'#3fb950',color0:'#f85149',borderColor:'#3fb950',borderColor0:'#f85149'}},
+     {name:'MA20',type:'line',data:ma(d.chart.ohlc.map(o=>o[1]),20),smooth:true,showSymbol:false,lineStyle:{width:1,color:'#d29922'}},
+     {name:'MA50',type:'line',data:ma(d.chart.ohlc.map(o=>o[1]),50),smooth:true,showSymbol:false,lineStyle:{width:1,color:'#bc8cff'}}]});
+
+  /* technical */
+  $('rTrend').textContent=d.technical.trend.trend;
+  const ti=d.technical.indicators, td=d.technical.trend.details;
+  $('techTable').innerHTML=rows([
+    ['RSI (14)',ti.rsi14],['MACD',ti.macd],['MACD Signal',ti.macd_signal],
+    ['SMA 20 / 50 / 200',`${td.sma20} / ${td.sma50} / ${td.sma200}`],
+    ['Bollinger %B',ti.bb_pct_b+'%'],['ATR (volatility)',ti.atr_pct+'%'],
+    ['Volume vs avg',ti.volume_ratio+'x'],['52W range position',ti.price_52w_pos_pct+'%'],
+    ['6M momentum',fmt(d.technical.trend.momentum_6m_pct)],
+    ['Support',d.technical.support.map(s=>s.level).join(' / ')||'—'],
+    ['Resistance',d.technical.resistance.map(s=>s.level).join(' / ')||'—']]);
+  $('techSignals').innerHTML=d.technical.signals.map(s=>
+    `<div class="sig ${s.bias}">${s.bias==='bullish'?'🟢':s.bias==='bearish'?'🔴':'⚪'} ${s.signal}</div>`).join('');
+
+  /* patterns */
+  $('patternList').innerHTML=d.chart_patterns.length?d.chart_patterns.map(p=>
+    `<div class="sig ${p.direction}"><b>${p.pattern}</b> (${p.direction}, strength ${p.strength}/100)<br>
+     <span class="muted">${p.note}</span></div>`).join(''):
+    `<div class="sig neutral">No major chart patterns detected in recent price action.</div>`;
+
+  /* fundamentals */
+  const f=d.fundamentals;
+  $('fundTable').innerHTML=f.available?rows([
+    ['Latest quarter',f.latest.quarter],['Revenue',f.latest.revenue_cr+' Cr'],
+    ['Net income',f.latest.net_income_cr+' Cr'],
+    ['Sales YoY',f.revenue_yoy_pct,f.revenue_yoy_pct],['Sales QoQ',f.revenue_qoq_pct,f.revenue_qoq_pct],
+    ['Earnings YoY',f.earnings_yoy_pct,f.earnings_yoy_pct],['Earnings QoQ',f.earnings_qoq_pct,f.earnings_qoq_pct]]) :
+    '<tr><td class="muted">Quarterly fundamentals unavailable</td></tr>';
+  const v=d.valuation;
+  $('valTable').innerHTML=rows([['P/E (trail / fwd)',`${v.pe_trailing} / ${v.pe_forward}`],
+    ['PEG',v.peg],['P/B',v.pb],['ROE',v.roe!=null?v.roe+'%':'—'],
+    ['Debt/Equity',v.debt_to_equity],['Inst. holding',v.institutional_holding_pct+'%']]);
+
+  /* analyst */
+  const a=d.analyst;
+  $('analystTable').innerHTML=rows([
+    ['Consensus',`<b>${a.consensus}</b> (${a.num_analysts} analysts)`],
+    ['Mean target',a.target_mean!=null?'₹'+a.target_mean:'—'],
+    ['Target range',a.target_low&&a.target_high?`₹${a.target_low} – ₹${a.target_high}`:'—'],
+    ['Implied upside',a.upside_pct, a.upside_pct]]);
+
+  /* news */
+  $('newsList').innerHTML=d.news.length?d.news.map(n=>
+    `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+     <a href="${n.link}" target="_blank">${n.title}</a><br>
+     <span class="muted">${n.publisher} • ${n.published}</span></div>`).join(''):
+    '<span class="muted">No recent news found.</span>';
+  setMkt(d.market);
+}
+function rows(arr){return arr.map(r=>{
+  const val=r[2]!==undefined?`<span class="${cls(r[2])}">${r[1]}</span>`:r[1];
+  return `<tr><td class="muted">${r[0]}</td><td>${val??'—'}</td></tr>`;}).join('');}
+function ma(arr,n){return arr.map((_,i)=>i<n-1?null:
+  +(arr.slice(i-n+1,i+1).reduce((a,b)=>a+b,0)/n).toFixed(2));}
+
+/* ---- trending ---- */
+async function loadTrending(){
+  $('sectorBars').innerHTML=$('activeList').innerHTML=$('gainerList').innerHTML=$('momentumList').innerHTML=$('highList').innerHTML='<span class="muted">Loading market data...</span>';
+  const response=await fetch('/api/trending');
+  const d=await response.json();
+  if(!response.ok)throw new Error(d.error||'Could not load trending data');
+  setMkt(d.market);
+  const row=r=>`<div class="list-row" onclick="pick('${r.symbol}')">
+    <span><b>${r.name}</b> <span class="muted">${r.sector}</span></span>
+    <span><span class="${cls(r.change_1d_pct)}">${fmt(r.change_1d_pct)}</span>
+    <span class="muted"> ₹${r.price}</span></span></div>`;
+  $('gainerList').innerHTML=d.gainers.map(row).join('');
+  $('momentumList').innerHTML=d.momentum.map(r=>`<div class="list-row" onclick="pick('${r.symbol}')">
+    <span><b>${r.name}</b></span><span class="${cls(r.change_1m_pct)}">${fmt(r.change_1m_pct)} 1M</span></div>`).join('');
+  $('activeList').innerHTML=d.most_active.map(r=>`<div class="list-row" onclick="pick('${r.symbol}')">
+    <span><b>${r.name}</b></span><span class="muted">${r.volume_ratio}x vol</span></div>`).join('');
+  $('highList').innerHTML=d.near_52w_high.length?d.near_52w_high.map(row).join(''):
+    '<span class="muted">No tracked stocks within 5% of their 52-week high right now.</span>';
+  const max=Math.max(...d.sector_performance.map(s=>Math.abs(s.avg_change_pct)),1);
+  $('sectorBars').innerHTML=d.sector_performance.map(s=>`
+    <div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:.86rem">
+    <b>${s.sector}</b><span class="${cls(s.avg_change_pct)}">${fmt(s.avg_change_pct)}</span></div>
+    <div class="bar" style="margin-top:4px"><i style="width:${Math.abs(s.avg_change_pct)/max*100}%;
+    background:${s.avg_change_pct>=0?'var(--green)':'var(--red)'}"></i></div></div>`).join('');
+}
+
+/* ---- recommendations ---- */
+let recoLoaded=false;
+async function loadReco(){
+  if(recoLoaded)return;
+  $('recoList').innerHTML='<span class="muted">Scanning universe… (60–90s first time)</span>';
+  const response=await fetch('/api/recommendations');
+  const d=await response.json();
+  if(!response.ok)throw new Error(d.error||'Could not load top picks');
+  $('recoList').innerHTML='<table><tr><th>#</th><th>Stock</th><th>Sector</th><th>Price</th><th>Score</th><th>Verdict</th></tr>'+
+    d.map((r,i)=>`<tr style="cursor:pointer" onclick="pick('${r.symbol}')">
+    <td>${i+1}</td><td><b>${r.name}</b><br><span class="muted">${r.symbol}</span></td>
+    <td>${r.sector}</td><td>₹${r.price}</td>
+    <td><b class="${r.score>=60?'pos':r.score<42?'neg':''}">${r.score}</b></td><td class="muted">${r.verdict}</td></tr>`).join('')+'</table>';
+  recoLoaded=true;
+}
+
+function setMkt(m){
+  if(!m||!m.nifty_level){$('mktBanner').textContent='Market data unavailable';return;}
+  $('mktBanner').innerHTML=`<b>Nifty 50: ${m.nifty_level}</b> — ${m.nifty_above_50dma?'<span class="pos">Above 50-DMA</span>':'<span class="neg">Below 50-DMA</span>'} • ${m.nifty_above_200dma?'<span class="pos">Above 200-DMA</span>':'<span class="neg">Below 200-DMA</span>'}`+
+    (m.breadth_pct_above_50dma!=null?` • Breadth: ${m.breadth_pct_above_50dma}% of tracked stocks above 50-DMA`:'')+
+    `<span class="muted"> — CANSLIM 'M' input</span>`;
+}
+window.addEventListener('resize',()=>chart&&chart.resize());
+</script>
+</body>
+</html>

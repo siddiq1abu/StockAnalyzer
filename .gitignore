@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+Backend/.credentials.json
+Backend/.angel_one_credentials.json
+Backend/.cache/
+*.log
